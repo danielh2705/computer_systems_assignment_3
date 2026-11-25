@@ -1,0 +1,148 @@
+import chisel3._
+import chisel3.util._
+
+class Accelerator extends Module {
+  val io = IO(new Bundle {
+    val start = Input(Bool())
+    val done = Output(Bool())
+
+    val address = Output(UInt(16.W))
+    val dataRead = Input(UInt(32.W))
+    val writeEnable = Output(Bool())
+    val dataWrite = Output(UInt(32.W))
+  })
+  // Write here your code
+  val idle :: read :: write :: done :: rowLoop :: yReset :: columnLoop :: checkBorder :: checkOwnColor :: checkNeighbors :: checkNeighborRight :: checkNeighborUp :: checkNeighborDown :: dataSet0 :: dataSet255 :: Nil =
+    Enum(15)
+  val stateReg = RegInit(idle)
+  val x = RegInit(0.U(16.W))
+  val y = RegInit(0.U(16.W))
+  val addressReg = RegInit(0.U(16.W))
+  val dataReg = RegInit(0.U(32.W))
+  io.writeEnable := false.B
+  io.address := addressReg
+  io.dataWrite := dataReg
+  io.done := false.B
+
+  switch(stateReg) {
+
+    is(idle) {
+      when(io.start === 0.U) {
+        stateReg := idle
+      }.otherwise {
+        stateReg := read
+      }
+    }
+
+    is(read) {
+      io.address := addressReg
+      dataReg := Cat(0.U(24.W), io.dataRead(7, 0))
+      stateReg := checkBorder
+    }
+
+    is(rowLoop) {
+      when(x < 20.U) {
+        stateReg := yReset
+      }.otherwise {
+        stateReg := done
+      }
+
+    }
+
+    is(yReset) {
+      y := 0.U
+      stateReg := columnLoop
+    }
+
+    is(columnLoop) {
+      when(y < 20.U) {
+        addressReg := (x + (20.U * y))
+        stateReg := read
+      }.otherwise {
+        x := x + 1.U
+        stateReg := rowLoop
+      }
+    }
+
+    is(checkBorder) {
+      when(x === 0.U || y === 0.U || x === 19.U || y === 19.U) {
+        stateReg := dataSet0
+      }.otherwise {
+        stateReg := checkOwnColor
+      }
+    }
+
+    is(checkOwnColor) {
+
+      when(dataReg === 0.U) {
+        stateReg := dataSet0
+      }.otherwise {
+        stateReg := checkNeighbors
+      }
+
+    }
+
+    is(checkNeighbors) {
+      io.address := addressReg - 1.U
+      when(io.dataRead(7, 0) === 0.U) {
+        stateReg := dataSet0
+      }.otherwise {
+        stateReg := checkNeighborRight
+      }
+    }
+
+    is(checkNeighborRight) {
+      io.address := addressReg + 1.U
+      when(io.dataRead(7, 0) === 0.U) {
+        stateReg := dataSet0
+      }.otherwise {
+        stateReg := checkNeighborUp
+      }
+    }
+
+    is(checkNeighborUp) {
+      io.address := addressReg - 20.U
+      when(io.dataRead(7, 0) === 0.U) {
+        stateReg := dataSet0
+      }.otherwise {
+        stateReg := checkNeighborDown
+      }
+    }
+
+    is(checkNeighborDown) {
+      io.address := addressReg + 20.U
+      when(io.dataRead(7, 0) === 0.U) {
+        stateReg := dataSet0
+      }.otherwise {
+        stateReg := dataSet255
+      }
+    }
+
+    is(dataSet0) {
+      dataReg := 0.U(32.W)
+      stateReg := write
+    }
+
+    is(dataSet255) {
+      dataReg := 255.U(32.W)
+      stateReg := write
+    }
+
+    is(write) {
+      io.address := addressReg + 400.U(16.W)
+      io.writeEnable := true.B
+      when(addressReg === 399.U(16.W)) {
+        stateReg := done
+      }.otherwise {
+        y := y + 1.U
+        stateReg := columnLoop
+      }
+    }
+
+    is(done) {
+      io.done := true.B
+      stateReg := done
+    }
+
+  }
+}
