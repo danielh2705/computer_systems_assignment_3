@@ -12,8 +12,8 @@ class Accelerator extends Module {
     val dataWrite = Output(UInt(32.W))
   })
   // Write here your code
-  val idle :: read :: write :: done :: checkBorder :: checkOwnColor :: checkNeighbors :: checkNeighborRight :: checkNeighborUp :: checkNeighborDown :: dataSet0 :: dataSet255 :: Nil =
-    Enum(12)
+  val idle :: read :: write :: done :: checkBorderAndSelf :: checkNeighborLeft :: checkNeighborRight :: checkNeighborUp :: checkNeighborDown :: dataSet0 :: dataSet255 :: Nil =
+    Enum(11)
   val stateReg = RegInit(idle)
   val x = RegInit(0.U(16.W))
   val y = RegInit(0.U(16.W))
@@ -37,60 +37,60 @@ class Accelerator extends Module {
     is(read) {
       io.address := addressReg
       dataReg := Cat(0.U(24.W), io.dataRead(7, 0))
-      stateReg := checkBorder
+      stateReg := checkBorderAndSelf
     }
 
-    is(checkBorder) {
-      when(x === 0.U || y === 0.U || x === 19.U || y === 19.U) {
+    is(checkBorderAndSelf) {
+      when(x === 0.U || y === 0.U || x === 19.U || y === 19.U||dataReg === 0.U) {
         stateReg := dataSet0
       }.otherwise {
-        stateReg := checkOwnColor
+        stateReg := checkNeighborLeft
       }
     }
 
-    is(checkOwnColor) {
+  
 
-      when(dataReg === 0.U) {
-        stateReg := dataSet0
-      }.otherwise {
-        stateReg := checkNeighbors
-      }
-
-    }
-
-    is(checkNeighbors) {
+    is(checkNeighborLeft) {
       io.address := addressReg - 1.U
       when(io.dataRead(7, 0) === 0.U) {
-        stateReg := dataSet0
+        dataReg := 0.U
+        stateReg := write
       }.otherwise {
-        stateReg := checkNeighborRight
+        dataReg := 255.U
+        stateReg := write
       }
     }
 
     is(checkNeighborRight) {
       io.address := addressReg + 1.U
       when(io.dataRead(7, 0) === 0.U) {
-        stateReg := dataSet0
+        dataReg := 0.U
+        stateReg := write
       }.otherwise {
-        stateReg := checkNeighborUp
+        dataReg := 255.U
+        stateReg := write
       }
     }
 
     is(checkNeighborUp) {
       io.address := addressReg - 20.U
       when(io.dataRead(7, 0) === 0.U) {
-        stateReg := dataSet0
+        dataReg := 0.U
+        stateReg := write
       }.otherwise {
-        stateReg := checkNeighborDown
+        dataReg := 255.U
+        stateReg := write
       }
     }
 
     is(checkNeighborDown) {
       io.address := addressReg + 20.U
       when(io.dataRead(7, 0) === 0.U) {
-        stateReg := dataSet0
+        dataReg := 0.U
+        stateReg := write
       }.otherwise {
-        stateReg := dataSet255
+        dataReg := 255.U
+        stateReg := write
       }
     }
 
