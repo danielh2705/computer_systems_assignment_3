@@ -33,22 +33,19 @@ class Accelerator extends Module {
         stateReg := read
       }
     }
-
     is(read) {
       io.address := addressReg
-      dataReg := Cat(0.U(24.W), io.dataRead(7, 0))
-      stateReg := checkBorderAndSelf
-    }
-
-    is(checkBorderAndSelf) {
-      when(x === 0.U || y === 0.U || x === 19.U || y === 19.U||dataReg === 0.U) {
-        stateReg := dataSet0
+      when(
+        x === 0.U || y === 0.U || x === 19.U || y === 19.U ||
+        io.dataRead(7, 0) === 0.U
+      ) {
+        dataReg := 0.U
+        stateReg := write
       }.otherwise {
         stateReg := checkNeighborLeft
       }
     }
-
-  
+      
 
     is(checkNeighborLeft) {
       io.address := addressReg - 1.U
@@ -57,7 +54,7 @@ class Accelerator extends Module {
         stateReg := write
       }.otherwise {
         dataReg := 255.U
-        stateReg := write
+        stateReg := checkNeighborRight
       }
     }
 
@@ -68,7 +65,7 @@ class Accelerator extends Module {
         stateReg := write
       }.otherwise {
         dataReg := 255.U
-        stateReg := write
+        stateReg := checkNeighborUp
       }
     }
 
@@ -79,7 +76,7 @@ class Accelerator extends Module {
         stateReg := write
       }.otherwise {
         dataReg := 255.U
-        stateReg := write
+        stateReg := checkNeighborDown
       }
     }
 
@@ -94,15 +91,6 @@ class Accelerator extends Module {
       }
     }
 
-    is(dataSet0) {
-      dataReg := 0.U(32.W)
-      stateReg := write
-    }
-
-    is(dataSet255) {
-      dataReg := 255.U(32.W)
-      stateReg := write
-    }
 
     is(write) {
       io.address := addressReg + 400.U(16.W)
