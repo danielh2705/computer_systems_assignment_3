@@ -12,8 +12,8 @@ class Accelerator extends Module {
     val dataWrite = Output(UInt(32.W))
   })
   // Write here your code
-  val idle :: read :: write :: done :: rowLoop :: yReset :: columnLoop :: checkBorder :: checkOwnColor :: checkNeighbors :: checkNeighborRight :: checkNeighborUp :: checkNeighborDown :: dataSet0 :: dataSet255 :: Nil =
-    Enum(15)
+  val idle :: read :: write :: done :: checkBorder :: checkOwnColor :: checkNeighbors :: checkNeighborRight :: checkNeighborUp :: checkNeighborDown :: dataSet0 :: dataSet255 :: Nil =
+    Enum(12)
   val stateReg = RegInit(idle)
   val x = RegInit(0.U(16.W))
   val y = RegInit(0.U(16.W))
@@ -38,30 +38,6 @@ class Accelerator extends Module {
       io.address := addressReg
       dataReg := Cat(0.U(24.W), io.dataRead(7, 0))
       stateReg := checkBorder
-    }
-
-    is(rowLoop) {
-      when(x < 20.U) {
-        stateReg := yReset
-      }.otherwise {
-        stateReg := done
-      }
-
-    }
-
-    is(yReset) {
-      y := 0.U
-      stateReg := columnLoop
-    }
-
-    is(columnLoop) {
-      when(y < 20.U) {
-        addressReg := (x + (20.U * y))
-        stateReg := read
-      }.otherwise {
-        x := x + 1.U
-        stateReg := rowLoop
-      }
     }
 
     is(checkBorder) {
@@ -134,8 +110,15 @@ class Accelerator extends Module {
       when(addressReg === 399.U(16.W)) {
         stateReg := done
       }.otherwise {
-        y := y + 1.U
-        stateReg := columnLoop
+        when(y === 19.U) {
+          x := x + 1.U
+          y := 0.U
+          addressReg := x + 1.U
+        }.otherwise {
+          y := y + 1.U
+          addressReg := addressReg + 20.U
+        }
+        stateReg := read
       }
     }
 
